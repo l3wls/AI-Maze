@@ -336,6 +336,10 @@ class RepeatedBackwardAStar:
         self.counter += 1
         self.stats['searches'] += 1
         
+        # Check if start is blocked
+        if self.agent.is_known_blocked(start):
+            return None, set(), {}
+        
         # Search from goal to start
         g_values = {goal: 0}
         f_values = {goal: self.heuristic(goal, start)}
@@ -350,8 +354,11 @@ class RepeatedBackwardAStar:
         open_list = [(priority, 0, goal)]
         open_set = {goal}
         item_counter = 1
+        max_iterations = self.agent.gridworld.size * self.agent.gridworld.size * 2
+        iterations = 0
         
-        while open_list:
+        while open_list and iterations < max_iterations:
+            iterations += 1
             _, _, current = heapq.heappop(open_list)
             
             if current not in open_set:
@@ -359,18 +366,17 @@ class RepeatedBackwardAStar:
             open_set.remove(current)
             
             if current == start:
-                # Reconstruct path
-                path = []
+                # Reconstruct path from start to goal
+                # tree[child] = parent, we searched goal→start, so reverse the tree direction
+                path = [start]
                 node = start
                 while node in tree:
-                    path.append(node)
                     node = tree[node]
-                path.append(goal)
-                path.reverse()
+                    path.append(node)
                 return path, closed, g_values
             
-            if g_values.get(start, float('inf')) <= f_values.get(current, float('inf')):
-                break
+            if current in closed:
+                continue
             
             closed.add(current)
             self.stats['total_expansions'] += 1
@@ -378,6 +384,9 @@ class RepeatedBackwardAStar:
             # Expand neighbors
             for neighbor in self.agent.gridworld.get_neighbors(current):
                 if self.agent.is_known_blocked(neighbor):
+                    continue
+                
+                if neighbor in closed:
                     continue
                 
                 tentative_g = g_values[current] + 1
@@ -417,20 +426,39 @@ class RepeatedBackwardAStar:
                 print("Cannot reach the target.")
                 return trajectory, all_expanded, False
             
-            # Move along path
+            # Move one step at a time and check for obstacles
+            moved = False
             for i in range(1, len(path)):
                 next_pos = path[i]
+                
+                # Check if next position is now known to be blocked
+                if self.agent.is_known_blocked(next_pos):
+                    # Replan from current position
+                    break
+                
+                # Move to next position
                 self.agent.position = next_pos
                 trajectory.append(next_pos)
                 self.stats['path_length'] += 1
+                moved = True
+                
+                # Observe new surroundings
                 self.agent.observe()
                 
+                # Check if we reached the goal
                 if self.agent.position == self.agent.gridworld.goal:
                     print("Reached the target!")
                     return trajectory, all_expanded, True
                 
+                # Check if next cell in path is now blocked
                 if i + 1 < len(path) and self.agent.is_known_blocked(path[i + 1]):
+                    # Need to replan
                     break
+            
+            # Safety check: if we didn't move at all, path is blocked
+            if not moved:
+                print("Cannot reach the target.")
+                return trajectory, all_expanded, False
         
         print("Reached the target!")
         return trajectory, all_expanded, True
@@ -609,18 +637,19 @@ def run_experiments(num_envs=30, env_dir='environments'):
     
     for i in range(num_envs):
         print(f"\n{'='*60}")
-        print(f"Testing Environment {i}")
+        print(f"Testing Environment {i+1}/{num_envs}")
         print(f"{'='*60}")
         
         gw = load_environment(i, env_dir)
         
         # Test Forward A* with large-g
-        print("\nForward A* (large-g)...")
+        print("Forward A* (large-g)...", end=' ', flush=True)
         agent = Agent(gw)
         solver = RepeatedForwardAStar(agent, tie_breaking='large_g')
         start_time = time.time()
         trajectory, expanded, success = solver.find_path()
         runtime = time.time() - start_time
+        print(f"✓ ({runtime:.2f}s)")
         results['forward_large_g'].append({
             'expansions': solver.stats['total_expansions'],
             'searches': solver.stats['searches'],
@@ -630,12 +659,13 @@ def run_experiments(num_envs=30, env_dir='environments'):
         })
         
         # Test Forward A* with small-g
-        print("Forward A* (small-g)...")
+        print("Forward A* (small-g)...", end=' ', flush=True)
         agent = Agent(gw)
         solver = RepeatedForwardAStar(agent, tie_breaking='small_g')
         start_time = time.time()
         trajectory, expanded, success = solver.find_path()
         runtime = time.time() - start_time
+        print(f"✓ ({runtime:.2f}s)")
         results['forward_small_g'].append({
             'expansions': solver.stats['total_expansions'],
             'searches': solver.stats['searches'],
@@ -645,12 +675,13 @@ def run_experiments(num_envs=30, env_dir='environments'):
         })
         
         # Test Backward A*
-        print("Backward A* (large-g)...")
+        print("Backward A* (large-g)...", end=' ', flush=True)
         agent = Agent(gw)
         solver = RepeatedBackwardAStar(agent, tie_breaking='large_g')
         start_time = time.time()
         trajectory, expanded, success = solver.find_path()
         runtime = time.time() - start_time
+        print(f"✓ ({runtime:.2f}s)")
         results['backward_large_g'].append({
             'expansions': solver.stats['total_expansions'],
             'searches': solver.stats['searches'],
@@ -660,12 +691,13 @@ def run_experiments(num_envs=30, env_dir='environments'):
         })
         
         # Test Adaptive A*
-        print("Adaptive A* (large-g)...")
+        print("Adaptive A* (large-g)...", end=' ', flush=True)
         agent = Agent(gw)
         solver = AdaptiveAStar(agent, tie_breaking='large_g')
         start_time = time.time()
         trajectory, expanded, success = solver.find_path()
         runtime = time.time() - start_time
+        print(f"✓ ({runtime:.2f}s)")
         results['adaptive'].append({
             'expansions': solver.stats['total_expansions'],
             'searches': solver.stats['searches'],
