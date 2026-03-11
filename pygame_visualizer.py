@@ -45,18 +45,49 @@ LIGHT_BLUE = (173, 216, 230)
 class PygamePathfindingVisualizer:
     """Interactive Pygame visualization of A* pathfinding"""
     
-    def __init__(self, grid_size=15, cell_size=40, algorithm='forward_large', seed=None):
+    def __init__(self, grid_size=15, cell_size=None, algorithm='forward_large', seed=None):
         pygame.init()
         
         self.grid_size = grid_size
-        self.cell_size = cell_size
+        
+        # Auto-adjust cell size for large grids to fit on screen
+        if cell_size is None:
+            # Get screen resolution
+            display_info = pygame.display.Info()
+            screen_width = display_info.current_w
+            screen_height = display_info.current_h
+            
+            # Leave room for info panel (400px) and taskbar/borders (100px)
+            available_width = screen_width - 500
+            available_height = screen_height - 200
+            
+            # Calculate cell size to fit screen
+            max_cell_from_width = available_width // grid_size
+            max_cell_from_height = available_height // grid_size
+            
+            # Use the smaller of the two, but keep between 5 and 40 pixels
+            self.cell_size = max(5, min(40, min(max_cell_from_width, max_cell_from_height)))
+            
+            print(f"Auto-adjusting for {grid_size}x{grid_size} grid:")
+            print(f"  Screen size: {screen_width}x{screen_height}")
+            print(f"  Cell size: {self.cell_size}px")
+        else:
+            self.cell_size = cell_size
+        
         self.algorithm = algorithm
         
         # Calculate window size
-        self.grid_width = grid_size * cell_size
+        self.grid_width = grid_size * self.cell_size
         self.info_width = 400
         self.window_width = self.grid_width + self.info_width
-        self.window_height = grid_size * cell_size + 100  # Extra space for controls
+        self.window_height = grid_size * self.cell_size + 100  # Extra space for controls
+        
+        # Make sure window fits on screen
+        display_info = pygame.display.Info()
+        if self.window_width > display_info.current_w - 50:
+            self.window_width = display_info.current_w - 50
+        if self.window_height > display_info.current_h - 100:
+            self.window_height = display_info.current_h - 100
         
         # Create window
         self.screen = pygame.display.set_mode((self.window_width, self.window_height))
@@ -464,7 +495,8 @@ def main():
     
     parser = argparse.ArgumentParser(description='Interactive Pygame A* Pathfinding')
     parser.add_argument('--size', type=int, default=15, help='Grid size (default: 15)')
-    parser.add_argument('--cell', type=int, default=40, help='Cell size in pixels (default: 40)')
+    parser.add_argument('--cell', type=int, default=None, 
+                       help='Cell size in pixels (default: auto-adjust for screen)')
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
     parser.add_argument('--algorithm', type=str, default='forward_large',
                        choices=['forward_large', 'forward_small', 'adaptive'],
@@ -476,7 +508,10 @@ def main():
     print("PYGAME A* PATHFINDING VISUALIZER")
     print("=" * 70)
     print(f"\nGrid Size: {args.size}x{args.size}")
-    print(f"Cell Size: {args.cell} pixels")
+    if args.cell:
+        print(f"Cell Size: {args.cell} pixels (manual)")
+    else:
+        print(f"Cell Size: Auto-adjusted to fit your screen")
     print(f"Algorithm: {args.algorithm}")
     print(f"Seed: {args.seed if args.seed else 'Random'}")
     print()
@@ -493,7 +528,7 @@ def main():
     
     viz = PygamePathfindingVisualizer(
         grid_size=args.size,
-        cell_size=args.cell,
+        cell_size=args.cell,  # None = auto-adjust
         algorithm=args.algorithm,
         seed=args.seed
     )
