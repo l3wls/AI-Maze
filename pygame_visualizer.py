@@ -116,7 +116,6 @@ class PygamePathfindingVisualizer:
         self.step_count = 0
         self.finished = False
         self.paused = True
-        self.show_fog = True
         self.speed = 5  # Steps per second
         
         # Font
@@ -148,12 +147,9 @@ class PygamePathfindingVisualizer:
                     if pos in self.agent.known_blocked:
                         # Known blocked
                         color = BLACK
-                    elif self.show_fog:
+                    else:
                         # Unknown (fog of war)
                         color = DARK_GRAY
-                    else:
-                        # Show all blocks (cheat mode)
-                        color = GRAY
                 elif pos in self.agent.visited_cells:
                     # Visited
                     color = LIGHT_GREEN
@@ -333,22 +329,9 @@ class PygamePathfindingVisualizer:
     
     def draw_controls(self):
         """Draw control instructions at bottom"""
-        y = self.grid_width + 10
-        
-        controls = [
-            "SPACE: Play/Pause",
-            "S: Step Once",
-            "R: Reset",
-            "F: Toggle Fog",
-            "+/-: Speed",
-            "Q: Quit"
-        ]
-        
-        x = 10
-        for control in controls:
-            text = self.small_font.render(control, True, BLACK)
-            self.screen.blit(text, (x, y))
-            x += 140
+        # Controls removed - cleaner display for demos
+        # Controls still work: SPACE, S, R, +/-, Q
+        pass
     
     def search_step(self):
         """Perform one A* search"""
@@ -450,10 +433,6 @@ class PygamePathfindingVisualizer:
                         # Reset
                         self.reset()
                     
-                    elif event.key == pygame.K_f:
-                        # Toggle fog
-                        self.show_fog = not self.show_fog
-                    
                     elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
                         # Speed up
                         self.speed = min(30, self.speed + 1)
@@ -514,14 +493,6 @@ def main():
         print(f"Cell Size: Auto-adjusted to fit your screen")
     print(f"Algorithm: {args.algorithm}")
     print(f"Seed: {args.seed if args.seed else 'Random'}")
-    print()
-    print("Controls:")
-    print("  SPACE : Play/Pause")
-    print("  S     : Step once")
-    print("  R     : Reset")
-    print("  F     : Toggle fog of war")
-    print("  +/-   : Adjust speed")
-    print("  Q     : Quit")
     print()
     print("Starting visualization...")
     print("=" * 70)
