@@ -717,21 +717,23 @@ def print_statistics(results):
     
     for method, data in results.items():
         successful = [d for d in data if d['success']]
-        if len(successful) == 0:
-            continue
-        
-        avg_expansions = np.mean([d['expansions'] for d in successful])
-        avg_searches = np.mean([d['searches'] for d in successful])
-        avg_path = np.mean([d['path_length'] for d in successful])
-        avg_runtime = np.mean([d['runtime'] for d in successful])
         success_rate = len(successful) / len(data) * 100
         
         print(f"\n{method.upper()}:")
         print(f"  Success Rate: {success_rate:.1f}%")
-        print(f"  Avg Expansions: {avg_expansions:.1f}")
-        print(f"  Avg Searches: {avg_searches:.1f}")
-        print(f"  Avg Path Length: {avg_path:.1f}")
-        print(f"  Avg Runtime: {avg_runtime:.4f}s")
+        
+        if len(successful) == 0:
+            print(f"  No successful runs - algorithm failed on all {len(data)} environments")
+        else:
+            avg_expansions = np.mean([d['expansions'] for d in successful])
+            avg_searches = np.mean([d['searches'] for d in successful])
+            avg_path = np.mean([d['path_length'] for d in successful])
+            avg_runtime = np.mean([d['runtime'] for d in successful])
+            
+            print(f"  Avg Expansions: {avg_expansions:.1f}")
+            print(f"  Avg Searches: {avg_searches:.1f}")
+            print(f"  Avg Path Length: {avg_path:.1f}")
+            print(f"  Avg Runtime: {avg_runtime:.4f}s")
 
 
 if __name__ == "__main__":

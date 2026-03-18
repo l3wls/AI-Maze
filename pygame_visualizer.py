@@ -22,7 +22,7 @@ except ImportError:
     print()
     sys.exit(1)
 
-from pathfinding import GridWorld, Agent, RepeatedForwardAStar, AdaptiveAStar
+from pathfinding import GridWorld, Agent, RepeatedForwardAStar, RepeatedBackwardAStar, AdaptiveAStar
 import time
 
 # Colors
@@ -105,6 +105,8 @@ class PygamePathfindingVisualizer:
             self.solver = RepeatedForwardAStar(self.agent, tie_breaking='large_g')
         elif algorithm == 'forward_small':
             self.solver = RepeatedForwardAStar(self.agent, tie_breaking='small_g')
+        elif algorithm == 'backward_large':
+            self.solver = RepeatedBackwardAStar(self.agent, tie_breaking='large_g')
         elif algorithm == 'adaptive':
             self.solver = AdaptiveAStar(self.agent, tie_breaking='large_g')
         
@@ -393,6 +395,8 @@ class PygamePathfindingVisualizer:
             self.solver = RepeatedForwardAStar(self.agent, tie_breaking='large_g')
         elif self.algorithm == 'forward_small':
             self.solver = RepeatedForwardAStar(self.agent, tie_breaking='small_g')
+        elif self.algorithm == 'backward_large':
+            self.solver = RepeatedBackwardAStar(self.agent, tie_breaking='large_g')
         elif self.algorithm == 'adaptive':
             self.solver = AdaptiveAStar(self.agent, tie_breaking='large_g')
         
@@ -478,7 +482,7 @@ def main():
                        help='Cell size in pixels (default: auto-adjust for screen)')
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
     parser.add_argument('--algorithm', type=str, default='forward_large',
-                       choices=['forward_large', 'forward_small', 'adaptive'],
+                       choices=['forward_large', 'forward_small', 'backward_large', 'adaptive'],
                        help='Algorithm to use')
     
     args = parser.parse_args()
