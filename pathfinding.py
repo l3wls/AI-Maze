@@ -17,6 +17,7 @@ import os
 
 class GridWorld:
     """Represents a gridworld environment with blocked and unblocked cells"""
+    # This class creates the grid maze  with blocked and open cells
     
     def __init__(self, size=51):
         self.size = size
@@ -25,7 +26,10 @@ class GridWorld:
         self.goal = None
         
     def generate_maze_dfs(self, block_probability=0.3, seed=None):
+
         """Generate maze using depth-first search with random tie-breaking"""
+        # This function builds a random maze using DFS
+        # Some cells are blocked and others are open
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
@@ -159,6 +163,8 @@ class GridWorld:
 
 class Agent:
     """Agent that navigates the gridworld with limited visibility"""
+    # The agent moves in the grid and learns which cells are blocked
+
     
     def __init__(self, gridworld):
         self.gridworld = gridworld
@@ -167,6 +173,7 @@ class Agent:
         self.visited_cells = set()
         
     def observe(self):
+        # Check nearby cells and to remember which ones are blocked
         """Observe adjacent cells and update known blocked cells"""
         neighbors = self.gridworld.get_neighbors(self.position)
         for neighbor in neighbors:
@@ -197,15 +204,22 @@ class RepeatedForwardAStar:
         }
         
     def heuristic(self, pos):
+        
         """Manhattan distance heuristic"""
+        # Manhattan distance used as a heuristic for A*
+        # It estimates how far from the goal
+       
         return self.agent.manhattan_distance(pos, self.agent.gridworld.goal)
     
     def compute_path(self, start, goal):
         """Run A* search from start to goal"""
+        # This function runs the A* algorithm to find a path to the goal
         self.counter += 1
         self.stats['searches'] += 1
         
         # Initialize
+        # g is the cost from the start to the current cell
+        # f is the total cost g + heuristic
         g_values = {start: 0}
         f_values = {start: self.heuristic(start)}
         tree = {}
@@ -219,11 +233,13 @@ class RepeatedForwardAStar:
         else:  # small_g
             # Break ties in favor of smaller g-values
             priority = f_values[start] * 100000 + g_values[start]
-        
+        # The open list stores nodes that are still needed to explore
+        # The closed set stores nodes that are already checked
         open_list = [(priority, 0, start)]
         open_set = {start}
         item_counter = 1
         
+        # Continue searching until there are no more nodes to explore
         while open_list:
             _, _, current = heapq.heappop(open_list)
             
@@ -235,13 +251,14 @@ class RepeatedForwardAStar:
                 # Reconstruct path
                 path = []
                 node = goal
+                #  Build the path by going from goal back to start
                 while node in tree:
                     path.append(node)
                     node = tree[node]
                 path.append(start)
                 path.reverse()
                 return path, closed, g_values
-            
+            # Stop if the goal already has a better path than the current 
             if g_values.get(goal, float('inf')) <= f_values.get(current, float('inf')):
                 break
             
@@ -277,6 +294,7 @@ class RepeatedForwardAStar:
     
     def find_path(self):
         """Main loop: repeatedly find paths until goal is reached or impossible"""
+        # Plan a path, move step by step, and replan if a blocked cell is found
         trajectory = [self.agent.position]
         all_expanded = []
         
@@ -466,6 +484,8 @@ class RepeatedBackwardAStar:
 
 class AdaptiveAStar:
     """Adaptive A* with learning heuristics"""
+    # This version improves over time by updating the heuristic
+
     
     def __init__(self, agent, tie_breaking='large_g'):
         self.agent = agent
@@ -534,7 +554,8 @@ class AdaptiveAStar:
             
             closed.add(current)
             self.stats['total_expansions'] += 1
-            
+
+            # Check all neighboring cells and expand the search
             for neighbor in self.agent.gridworld.get_neighbors(current):
                 if self.agent.is_known_blocked(neighbor):
                     continue
