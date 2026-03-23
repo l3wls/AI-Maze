@@ -3,90 +3,144 @@ Step-by-Step Animation Generator
 Creates a series of images showing pathfinding progress
 """
 
+# Standard library imports
 import sys
+
+# Add custom module path so Python can find your pathfinding implementation
 sys.path.insert(0, '/home/claude')
+
+# Import your pathfinding components
 from pathfinding import GridWorld, Agent, RepeatedForwardAStar, AdaptiveAStar
+
+# Visualization libraries
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
+
+# Numerical operations (used for handling paths as arrays)
 import numpy as np
+
+# File system operations (used for saving frames)
 import os
 
 
 def create_frame(gridworld, agent, trajectory, current_path, expanded_cells, 
                 search_num, step_num, message, save_path):
-    """Create a single frame of the animation"""
-    
+    """
+    Creates a single visualization frame of the pathfinding process.
+
+    This function draws:
+    - The grid world (including obstacles and fog of war)
+    - The agent's current position
+    - The goal and start positions
+    - Cells that were expanded during search
+    - The path taken so far (trajectory)
+    - The current planned path (if available)
+    - A side panel with statistics and status updates
+
+    Parameters:
+        gridworld: The environment containing grid layout and obstacles
+        agent: The agent navigating the grid
+        trajectory: List of positions the agent has visited so far
+        current_path: The path returned by A* (planned path)
+        expanded_cells: Cells explored during the current search
+        search_num: Current search iteration number
+        step_num: Total steps taken so far
+        message: Status message to display
+        save_path: File path to save the generated image
+    """
+
+    # Create figure with two panels:
+    # Left = grid visualization, Right = info panel
     fig, (ax_main, ax_info) = plt.subplots(1, 2, figsize=(16, 8))
+
+    # Overall title for the frame
     fig.suptitle(f'A* Pathfinding - Search #{search_num}, Step #{step_num}', 
                  fontsize=16, fontweight='bold')
-    
+
     grid_size = gridworld.size
     
-    # Main grid
+    # ---------------------------
+    # Configure main grid display
+    # ---------------------------
     ax_main.set_xlim(-0.5, grid_size - 0.5)
     ax_main.set_ylim(-0.5, grid_size - 0.5)
-    ax_main.set_aspect('equal')
-    ax_main.invert_yaxis()
+    ax_main.set_aspect('equal')  # Ensure square cells
+    ax_main.invert_yaxis()       # Flip Y axis to match grid indexing
     ax_main.grid(True, alpha=0.3)
     ax_main.set_title('Grid World with Fog of War')
     
-    # Draw cells
+    # ---------------------------
+    # Draw each cell in the grid
+    # ---------------------------
     for i in range(grid_size):
         for j in range(grid_size):
             pos = (i, j)
             
             if pos == agent.position:
-                # Current agent position
+                # Draw agent as a blue circle
                 ax_main.add_patch(plt.Circle((j, i), 0.35, color='blue', zorder=5))
                 ax_main.text(j, i, 'A', ha='center', va='center', 
                            fontweight='bold', fontsize=12, color='white', zorder=6)
+
             elif pos == gridworld.goal:
-                # Goal
+                # Draw goal as a red star
                 ax_main.plot(j, i, 'r*', markersize=35, zorder=5)
                 ax_main.text(j, i-0.5, 'GOAL', ha='center', va='top', 
                            fontweight='bold', fontsize=10, color='red')
+
             elif pos == gridworld.start:
-                # Start (faded)
+                # Draw start (faded since agent may have moved)
                 ax_main.plot(j, i, 'go', markersize=12, alpha=0.4, zorder=4)
+
             elif gridworld.is_blocked(pos):
                 if pos in agent.known_blocked:
-                    # Known blocked
+                    # Known obstacle → fully visible black
                     ax_main.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, 
                                                     color='black', zorder=1))
                 else:
-                    # Unknown (fog of war)
+                    # Unknown obstacle (fog of war)
                     ax_main.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, 
                                                     color='#404040', alpha=0.7, zorder=1))
                     ax_main.text(j, i, '?', ha='center', va='center',
                                fontsize=20, color='gray', alpha=0.5)
+
             elif pos in agent.visited_cells:
-                # Visited
+                # Cells the agent has already visited
                 ax_main.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, 
                                                 color='lightgreen', alpha=0.25, zorder=1))
     
-    # Draw expanded cells
+    # ---------------------------
+    # Highlight expanded cells
+    # ---------------------------
+    # These are the nodes A* explored during search
     if expanded_cells:
         for cell in expanded_cells:
             i, j = cell
             ax_main.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, 
                                            color='cyan', alpha=0.35, zorder=2))
     
-    # Draw trajectory
+    # ---------------------------
+    # Draw actual path taken
+    # ---------------------------
     if len(trajectory) > 1:
         traj_array = np.array(trajectory)
         ax_main.plot(traj_array[:, 1], traj_array[:, 0], 
                     'orange', linewidth=4, alpha=0.6, zorder=3, 
                     label='Path Taken', marker='o', markersize=6)
     
-    # Draw planned path
+    # ---------------------------
+    # Draw current planned path
+    # ---------------------------
     if current_path and len(current_path) > 1:
         path_array = np.array(current_path)
         ax_main.plot(path_array[:, 1], path_array[:, 0], 
                     'r--', linewidth=3, alpha=0.7, zorder=3, 
                     label='Planned Path', marker='s', markersize=4)
     
-    # Legend
+    # ---------------------------
+    # Legend for visualization
+    # ---------------------------
     legend_elements = [
         mpatches.Patch(color='blue', label='Agent (Current)'),
         mpatches.Patch(color='red', label='Goal'),
@@ -99,9 +153,12 @@ def create_frame(gridworld, agent, trajectory, current_path, expanded_cells,
     ]
     ax_main.legend(handles=legend_elements, loc='upper left', fontsize=9)
     
-    # Info panel
-    ax_info.axis('off')
+    # ---------------------------
+    # Info panel (right side)
+    # ---------------------------
+    ax_info.axis('off')  # Hide axes
     
+    # Text block showing stats and progress
     info = f"""
 ═══════════════════════════════════════
         PATHFINDING PROGRESS
@@ -134,92 +191,99 @@ Status
 ═══════════════════════════════════════
 """
     
+    # Render info text box
     ax_info.text(0.05, 0.95, info, transform=ax_info.transAxes,
                 verticalalignment='top', fontfamily='monospace',
                 fontsize=11, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
     
+    # Save frame to file
     plt.tight_layout()
     plt.savefig(save_path, dpi=120, bbox_inches='tight')
     plt.close()
 
 
 def generate_animation(grid_size=10, seed=42, algorithm='forward_large', output_dir='animation'):
-    """Generate complete step-by-step animation"""
-    
+    """
+    Main driver function that runs the pathfinding simulation
+    and generates a sequence of frames showing each step.
+
+    This simulates:
+    - Agent exploring unknown grid
+    - Running A* repeatedly
+    - Moving step-by-step
+    - Replanning when obstacles are discovered
+    """
+
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
+    # Print setup info
     print("="*60)
     print("GENERATING STEP-BY-STEP ANIMATION")
     print("="*60)
-    print(f"Grid Size: {grid_size}x{grid_size}")
-    print(f"Algorithm: {algorithm}")
-    print(f"Seed: {seed}")
-    print(f"Output: {output_dir}/")
-    print()
-    
-    # Create gridworld
+
+    # ---------------------------
+    # Initialize environment
+    # ---------------------------
     gridworld = GridWorld(size=grid_size)
     gridworld.generate_maze_dfs(block_probability=0.3, seed=seed)
-    
-    print(f"Start: {gridworld.start}")
-    print(f"Goal: {gridworld.goal}")
-    print(f"Blocked cells: {int(gridworld.grid.sum())}")
-    print()
     
     # Create agent
     agent = Agent(gridworld)
     
-    # Choose algorithm
+    # ---------------------------
+    # Select algorithm
+    # ---------------------------
     if algorithm == 'forward_large':
         solver = RepeatedForwardAStar(agent, tie_breaking='large_g')
-        algo_name = "Forward A* (large-g)"
     elif algorithm == 'forward_small':
         solver = RepeatedForwardAStar(agent, tie_breaking='small_g')
-        algo_name = "Forward A* (small-g)"
     elif algorithm == 'adaptive':
         solver = AdaptiveAStar(agent, tie_breaking='large_g')
-        algo_name = "Adaptive A*"
     
-    print(f"Running {algo_name}...\n")
-    
-    trajectory = [agent.position]
+    # Track progress
+    trajectory = [agent.position]  # where agent has been
     search_num = 0
     step_num = 0
     frame_num = 0
     
+    # ---------------------------
     # Initial frame
+    # ---------------------------
     create_frame(gridworld, agent, trajectory, None, None, 
                 0, 0, "Initial state - Agent at start position",
                 f"{output_dir}/frame_{frame_num:03d}.png")
     frame_num += 1
-    print(f"Frame {frame_num}: Initial state")
     
-    # Main loop
+    # ---------------------------
+    # Main loop (until goal reached)
+    # ---------------------------
     while agent.position != gridworld.goal:
-        agent.observe()
+        agent.observe()  # update knowledge
+        
         search_num += 1
         
-        # Search
+        # Run A* search
         path, expanded, g_values = solver.compute_path(agent.position, gridworld.goal)
         
+        # If no path exists
         if path is None:
             create_frame(gridworld, agent, trajectory, None, expanded,
                         search_num, step_num, "❌ No path found! Goal is unreachable.",
                         f"{output_dir}/frame_{frame_num:03d}.png")
-            frame_num += 1
-            print(f"Frame {frame_num}: No path found")
             break
         
-        # Frame after search
+        # Frame after planning
         create_frame(gridworld, agent, trajectory, path, expanded,
                     search_num, step_num, 
-                    f"Search #{search_num} complete - Found path of length {len(path)-1}",
+                    f"Search #{search_num} complete - Found path",
                     f"{output_dir}/frame_{frame_num:03d}.png")
-        frame_num += 1
-        print(f"Frame {frame_num}: Search #{search_num} - found path (length {len(path)-1}, {len(expanded)} expansions)")
         
-        # Move along path
+        # ---------------------------
+        # Move along planned path
+        # ---------------------------
         path_blocked = False
+        
         for i in range(1, len(path)):
             next_pos = path[i]
             agent.position = next_pos
@@ -227,56 +291,45 @@ def generate_animation(grid_size=10, seed=42, algorithm='forward_large', output_
             step_num += 1
             agent.observe()
             
-            # Frame after move
+            # Determine message
             msg = f"Moving to {next_pos}"
+            
             if agent.position == gridworld.goal:
                 msg = "✓ GOAL REACHED!"
             elif i + 1 < len(path) and agent.is_known_blocked(path[i + 1]):
-                msg = f"⚠️ Path blocked at {path[i+1]}! Need to replan."
+                # Path becomes invalid → must replan
+                msg = f"⚠️ Path blocked! Replanning required."
                 path_blocked = True
             
+            # Create frame after movement
             create_frame(gridworld, agent, trajectory, path, expanded,
                         search_num, step_num, msg,
                         f"{output_dir}/frame_{frame_num:03d}.png")
-            frame_num += 1
-            print(f"Frame {frame_num}: Step {step_num} - {msg}")
             
-            if agent.position == gridworld.goal:
-                break
-            
-            if path_blocked:
+            if agent.position == gridworld.goal or path_blocked:
                 break
         
         if agent.position == gridworld.goal:
             break
     
-    # Final summary
-    print()
-    print("="*60)
-    print("ANIMATION COMPLETE")
-    print("="*60)
-    print(f"Total Frames: {frame_num}")
-    print(f"Total Searches: {search_num}")
-    print(f"Total Steps: {step_num}")
-    print(f"Final Path Length: {len(trajectory) - 1}")
-    print(f"Total Expansions: {solver.stats['total_expansions']}")
-    print()
-    print(f"Frames saved to {output_dir}/")
-    print(f"View them in sequence to see the pathfinding process!")
-    
     return frame_num
 
 
+# ---------------------------
+# Command line execution
+# ---------------------------
 if __name__ == "__main__":
     import argparse
     
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Generate step-by-step pathfinding animation')
-    parser.add_argument('--size', type=int, default=10, help='Grid size')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--size', type=int, default=10)
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--algorithm', type=str, default='forward_large',
                        choices=['forward_large', 'forward_small', 'adaptive'])
-    parser.add_argument('--output', type=str, default='animation', help='Output directory')
+    parser.add_argument('--output', type=str, default='animation')
     
     args = parser.parse_args()
     
+    # Run animation generator
     generate_animation(args.size, args.seed, args.algorithm, args.output)
