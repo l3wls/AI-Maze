@@ -1,59 +1,100 @@
 #!/usr/bin/env python3
 """
 Simple Demo Runner - Easy way to test the pathfinding algorithms
+
+This file acts as a driver script that allows you to:
+1. Run a single demo of A* on a grid
+2. Generate animation frames of the algorithm
+3. Compare different A* variations across multiple tests
+
+It is essentially a user-friendly interface for your pathfinding system.
 """
 
+# Standard library imports
 import sys
 import os
+
+# Add current file directory to Python path so local modules can be imported
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Import pathfinding components
 from pathfinding import GridWorld, Agent, RepeatedForwardAStar, AdaptiveAStar
+
+# Configure matplotlib for non-interactive use (no GUI pop-ups)
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+matplotlib.use('Agg')
+
+# Visualization + numerical libraries (not heavily used here but useful)
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def simple_demo(size=10, seed=42):
-    """Run a simple demo and show results"""
+    """
+    Runs a single demonstration of pathfinding on a generated grid.
+
+    This function:
+    - Creates a grid world
+    - Displays it in ASCII format
+    - Runs multiple A* variants
+    - Prints their performance metrics
+
+    Parameters:
+        size (int): Grid size (size x size)
+        seed (int): Random seed for reproducibility
+    """
     
+    # Print header
     print("="*70)
     print(" "*20 + "A* PATHFINDING DEMO")
     print("="*70)
     print()
     
+    # ---------------------------
     # Create gridworld
+    # ---------------------------
     print(f"Creating {size}x{size} gridworld (seed: {seed})...")
+    
     gw = GridWorld(size=size)
+    
+    # Generate maze using DFS with random obstacles
     gw.generate_maze_dfs(block_probability=0.3, seed=seed)
     
+    # Print basic info
     print(f"  Start: {gw.start}")
     print(f"  Goal:  {gw.goal}")
     print(f"  Blocked cells: {int(gw.grid.sum())}/{size*size}")
     print()
     
-    # Show ASCII grid
+    # ---------------------------
+    # Display ASCII grid
+    # ---------------------------
+    # This helps visualize the grid in terminal without graphics
     print("Grid Layout:")
     print("-" * (size * 3 + 2))
+    
     for i in range(size):
         row = "|"
         for j in range(size):
             if (i, j) == gw.start:
-                row += " S"
+                row += " S"  # Start position
             elif (i, j) == gw.goal:
-                row += " G"
+                row += " G"  # Goal position
             elif gw.grid[i, j] == 1:
-                row += " █"
+                row += " █"  # Blocked cell
             else:
-                row += " ·"
+                row += " ·"  # Free cell
         row += " |"
         print(row)
+    
     print("-" * (size * 3 + 2))
     print("S=Start, G=Goal, █=Blocked, ·=Unblocked")
     print()
     
-    # Test algorithms
-    results = {}
+    # ---------------------------
+    # Run different algorithms
+    # ---------------------------
+    results = {}  # Store results for comparison
     
     for algo_name, algo_type in [
         ('Forward A* (large-g)', 'forward_large'),
@@ -62,7 +103,10 @@ def simple_demo(size=10, seed=42):
     ]:
         print(f"Running {algo_name}...")
         
+        # Create a fresh agent for each run
         agent = Agent(gw)
+        
+        # Select algorithm implementation
         if algo_type == 'forward_large':
             solver = RepeatedForwardAStar(agent, tie_breaking='large_g')
         elif algo_type == 'forward_small':
@@ -70,26 +114,36 @@ def simple_demo(size=10, seed=42):
         else:
             solver = AdaptiveAStar(agent, tie_breaking='large_g')
         
+        # Run the algorithm
         trajectory, expanded, success = solver.find_path()
         
+        # Check result
         if success:
             print(f"  ✓ Success!")
             print(f"    Expansions: {solver.stats['total_expansions']}")
             print(f"    Searches:   {solver.stats['searches']}")
             print(f"    Path length: {solver.stats['path_length']}")
+            
+            # Save stats for comparison
             results[algo_name] = solver.stats
         else:
             print(f"  ✗ Failed - no path found")
             results[algo_name] = None
+        
         print()
     
-    # Summary
+    # ---------------------------
+    # Print comparison table
+    # ---------------------------
     print("="*70)
     print(" "*25 + "COMPARISON")
     print("="*70)
+    
+    # Table header
     print(f"{'Algorithm':<25} {'Expansions':<12} {'Searches':<10} {'Path Length':<12}")
     print("-"*70)
     
+    # Print results row by row
     for algo_name, stats in results.items():
         if stats:
             print(f"{algo_name:<25} {stats['total_expansions']:<12} {stats['searches']:<10} {stats['path_length']:<12}")
@@ -101,31 +155,57 @@ def simple_demo(size=10, seed=42):
 
 
 def run_animation(size=10, seed=42):
-    """Generate step-by-step animation"""
+    """
+    Generates a step-by-step animation of the pathfinding process.
+
+    This function calls the animation generator from another file.
+    It produces image frames showing the agent's movement and search progress.
+    """
+    
+    # Import here to avoid unnecessary dependency if not used
     from animate_pathfinding import generate_animation
     
     print("\nGenerating animation frames...")
+    
+    # Run animation generator
     generate_animation(size, seed, 'forward_large', 'demo_animation')
+    
     print("\n✓ Animation frames saved to demo_animation/")
 
 
 def compare_algorithms(size=15, num_tests=5):
-    """Compare algorithms on multiple grids"""
+    """
+    Runs multiple tests to compare algorithm performance.
+
+    This function:
+    - Generates multiple random grids
+    - Runs each algorithm on each grid
+    - Computes average expansions and success rates
+
+    Parameters:
+        size (int): Grid size
+        num_tests (int): Number of test runs
+    """
     
     print("="*70)
     print(" "*20 + "ALGORITHM COMPARISON")
     print("="*70)
     print(f"\nTesting on {num_tests} different {size}x{size} grids...\n")
     
+    # Store results for each algorithm
     all_results = {
         'forward_large': [],
         'forward_small': [],
         'adaptive': []
     }
     
+    # ---------------------------
+    # Run multiple test cases
+    # ---------------------------
     for test_num in range(num_tests):
         print(f"Test {test_num + 1}/{num_tests}...", end=' ')
         
+        # Generate new grid each time
         gw = GridWorld(size=size)
         gw.generate_maze_dfs(block_probability=0.3, seed=test_num)
         
@@ -135,6 +215,8 @@ def compare_algorithms(size=15, num_tests=5):
             ('adaptive', 'adaptive')
         ]:
             agent = Agent(gw)
+            
+            # Choose solver
             if algo_type == 'forward_large':
                 solver = RepeatedForwardAStar(agent, tie_breaking='large_g')
             elif algo_type == 'forward_small':
@@ -142,8 +224,10 @@ def compare_algorithms(size=15, num_tests=5):
             else:
                 solver = AdaptiveAStar(agent, tie_breaking='large_g')
             
+            # Run algorithm
             trajectory, expanded, success = solver.find_path()
             
+            # Record results
             if success:
                 all_results[algo_key].append(solver.stats['total_expansions'])
             else:
@@ -151,10 +235,13 @@ def compare_algorithms(size=15, num_tests=5):
         
         print("✓")
     
-    # Calculate averages
+    # ---------------------------
+    # Compute averages
+    # ---------------------------
     print("\n" + "="*70)
     print(" "*25 + "RESULTS")
     print("="*70)
+    
     print(f"{'Algorithm':<25} {'Avg Expansions':<20} {'Success Rate':<15}")
     print("-"*70)
     
@@ -164,6 +251,8 @@ def compare_algorithms(size=15, num_tests=5):
         ('Adaptive A*', 'adaptive')
     ]:
         results = all_results[algo_key]
+        
+        # Filter valid results (ignore failures)
         valid = [r for r in results if r is not None]
         
         if valid:
@@ -178,9 +267,19 @@ def compare_algorithms(size=15, num_tests=5):
 
 
 def main():
-    """Main menu"""
+    """
+    Entry point of the script.
+
+    This function reads command-line arguments and decides
+    which functionality to run:
+    - demo
+    - animate
+    - compare
+    """
     
+    # If arguments are provided
     if len(sys.argv) > 1:
+        
         if sys.argv[1] == 'demo':
             size = int(sys.argv[2]) if len(sys.argv) > 2 else 10
             seed = int(sys.argv[3]) if len(sys.argv) > 3 else 42
@@ -199,12 +298,21 @@ def main():
         else:
             print("Unknown command!")
             print_help()
+    
+    # If no arguments → show help
     else:
         print_help()
 
 
 def print_help():
-    """Print usage help"""
+    """
+    Prints usage instructions for the script.
+
+    This is shown when:
+    - No arguments are provided
+    - Invalid command is entered
+    """
+    
     print("""
 ╔════════════════════════════════════════════════════════════════════╗
 ║              A* PATHFINDING DEMO - QUICK START                      ║
@@ -214,29 +322,17 @@ def print_help():
 ║                                                                     ║
 ║  python demo.py demo [size] [seed]                                  ║
 ║    Run simple demo with ASCII output                                ║
-║    Example: python demo.py demo 10 42                               ║
 ║                                                                     ║
 ║  python demo.py animate [size] [seed]                               ║
 ║    Generate step-by-step animation frames                           ║
-║    Example: python demo.py animate 15 100                           ║
 ║                                                                     ║
 ║  python demo.py compare [size] [num_tests]                          ║
 ║    Compare algorithms on multiple grids                             ║
-║    Example: python demo.py compare 20 10                            ║
-║                                                                     ║
-╠════════════════════════════════════════════════════════════════════╣
-║  DEFAULT USAGE (no args):                                           ║
-║    python demo.py         → Shows this help                         ║
-║                                                                     ║
-║  TRY THESE:                                                         ║
-║    python demo.py demo 5 42        → Small 5x5 grid                 ║
-║    python demo.py demo 10 15       → Medium 10x10 grid              ║
-║    python demo.py animate 10 15    → Animation of 10x10             ║
-║    python demo.py compare 15 10    → Compare on 10 grids            ║
 ║                                                                     ║
 ╚════════════════════════════════════════════════════════════════════╝
 """)
 
 
+# Run program if executed directly
 if __name__ == "__main__":
     main()
