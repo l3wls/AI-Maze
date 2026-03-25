@@ -325,7 +325,6 @@ class RepeatedForwardAStar:
 
     def compute_path(self, start, goal):
         """Run A* search from start to goal using agent's current knowledge"""
-        ``
         # Initialize
         g_values = {start: 0}
         h = self.agent.manhattan_distance(start, goal)
