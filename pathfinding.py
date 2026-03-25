@@ -324,121 +324,93 @@ class RepeatedForwardAStar:
         return self.agent.manhattan_distance(pos, self.agent.gridworld.goal)
 
     def compute_path(self, start, goal):
-        """Run A* search from start to goal."""
-        # This method performs a single A* search using ONLY the blocked cells
-        # the agent currently knows about.
-        #
-        # Return values:
-        # - path: the planned route from start to goal, or None if no path found
-        # - closed: all states expanded during this search
-        # - g_values: best known distance from start to each discovered state
-
-        self.counter += 1
-        self.stats['searches'] += 1
-
-        # g(n): exact cost from the search start to node n
+        """Run A* search from start to goal using agent's current knowledge"""
+        ``
+        # Initialize
         g_values = {start: 0}
-
-        # f(n): estimated total cost = g(n) + h(n)
-        f_values = {start: self.heuristic(start)}
-
-        # tree stores parent pointers for reconstructing the path later.
-        # Example: tree[child] = parent
-        tree = {}
-
-        # closed stores already-expanded states.
-        closed = set()
-
-        # Build the initial priority of the start node.
-        # Multiplying f by a large number ensures that f is the main sorting key,
-        # while +/- g serves only as the tie-breaker.
+        h = self.agent.manhattan_distance(start, goal)
+        f_values = {start: h}
+        
+        # Calculate initial priority
         if self.tie_breaking == 'large_g':
             priority = f_values[start] * 100000 - g_values[start]
         else:  # small_g
             priority = f_values[start] * 100000 + g_values[start]
-
-        # open_list is the priority queue used by heapq.
-        # Each item is:
-        #   (priority, insertion_order, position)
-        #
-        # insertion_order avoids comparison issues when priorities are equal.
+        
         open_list = [(priority, 0, start)]
-
-        # open_set lets us quickly test whether a node is still considered active.
         open_set = {start}
-
-        # Unique counter used to preserve heap ordering on ties.
-        item_counter = 1
-
-        # Continue until there are no more candidates to explore.
+        open_dict = {start: 0}  # ⭐ NEW: Track counter for each cell in open list
+        closed = set()
+        tree = {}
+        counter = 0
+        
+        # Main A* loop
         while open_list:
-            # Pop the node with the smallest priority value.
-            _, _, current = heapq.heappop(open_list)
-
-            # Because updates are handled by reinserting nodes, old stale entries
-            # may remain in the heap. This check skips outdated copies.
-            if current not in open_set:
+            _, pop_counter, current = heapq.heappop(open_list)
+            
+            # ⭐ NEW: Skip stale entries (old versions with worse priority)
+            if current in open_dict and open_dict[current] != pop_counter:
                 continue
-            open_set.remove(current)
-
-            # If the goal is chosen for expansion, reconstruct the full path.
+            
+            # Skip if already closed
+            if current in closed:
+                continue
+            
+            # Remove from open tracking
+            open_set.discard(current)
+            if current in open_dict:
+                del open_dict[current]
+            
+            # Goal check
             if current == goal:
+                # Reconstruct path
                 path = []
                 node = goal
-
-                # Walk backward using parent pointers until reaching the start.
                 while node in tree:
                     path.append(node)
                     node = tree[node]
-
                 path.append(start)
                 path.reverse()
                 return path, closed, g_values
-
-            # Early stopping condition:
-            # If the best known g-value of the goal is already no worse than the
-            # current state's f-value, continuing search cannot improve the result.
-            if g_values.get(goal, float('inf')) <= f_values.get(current, float('inf')):
-                break
-
-            # Mark this node as expanded.
+            
+            # Mark as expanded
             closed.add(current)
             self.stats['total_expansions'] += 1
-
-            # Explore each 4-connected neighbor.
-            for neighbor in self.agent.gridworld.get_neighbors(current):
-                # Skip any cell the agent already knows is blocked.
+            
+            # Expand neighbors
+            neighbors = self.agent.gridworld.get_neighbors(current)
+            
+            for neighbor in neighbors:
+                # Skip if blocked or closed
                 if self.agent.is_known_blocked(neighbor):
                     continue
-
-                # Since every move costs 1, neighbor cost is current cost + 1.
+                if neighbor in closed:
+                    continue
+                
+                # Calculate tentative g
                 tentative_g = g_values[current] + 1
-
-                # Update the neighbor if it has never been seen before
-                # or if we found a strictly better path to it.
+                
+                # Check if this is a better path
                 if neighbor not in g_values or tentative_g < g_values[neighbor]:
+                    # Update values
                     g_values[neighbor] = tentative_g
-                    f_values[neighbor] = tentative_g + self.heuristic(neighbor)
+                    h = self.agent.manhattan_distance(neighbor, goal)
+                    f_values[neighbor] = tentative_g + h
                     tree[neighbor] = current
-
-                    # If the node is already in the open list, we do not directly edit
-                    # the old heap entry. We simply push a fresh entry. Later, stale
-                    # entries are ignored by checking membership in open_set.
-                    if neighbor in open_set:
-                        pass
-
-                    # Recompute priority using the selected tie-breaking strategy.
+                    
+                    # Calculate priority
                     if self.tie_breaking == 'large_g':
                         priority = f_values[neighbor] * 100000 - g_values[neighbor]
-                    else:
+                    else:  # small_g
                         priority = f_values[neighbor] * 100000 + g_values[neighbor]
-
-                    heapq.heappush(open_list, (priority, item_counter, neighbor))
+                    
+                    # Add to heap
+                    counter += 1
+                    heapq.heappush(open_list, (priority, counter, neighbor))
                     open_set.add(neighbor)
-                    item_counter += 1
-
-        # If the loop ends without returning a path, no route was found
-        # under the agent's current knowledge.
+                    open_dict[neighbor] = counter  # ⭐ NEW: Track this counter
+        
+        # No path found
         return None, closed, g_values
 
     def find_path(self):
